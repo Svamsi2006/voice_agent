@@ -1,0 +1,125 @@
+[
+  {
+    "name": "checkOrderStatus",
+    "description": "Check the status and tracking information for a customer's order. Use this when a customer asks about their order, delivery status, or tracking.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "description": "The order ID or order number provided by the customer"
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "The customer's phone number if they don't have the order ID"
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "lookupCustomer",
+    "description": "Look up customer account information to verify identity or retrieve account details. Use this to find customer information when they call.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "customerId": {
+          "type": "string",
+          "description": "The customer's account ID"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The customer's phone number"
+        },
+        "email": {
+          "type": "string",
+          "description": "The customer's email address"
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "createAppointment",
+    "description": "Create a new appointment or schedule a callback for the customer. Use this when a customer wants to book an appointment or schedule a time to be contacted.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "The date for the appointment in YYYY-MM-DD format"
+        },
+        "time": {
+          "type": "string",
+          "description": "The time for the appointment in HH:MM format (24-hour)"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Duration of the appointment in minutes (default: 30)"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "The customer's full name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The customer's phone number for contact"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Brief description of the appointment purpose"
+        }
+      },
+      "required": ["date", "time", "customerName", "phone"]
+    }
+  },
+  {
+    "name": "updateAppointment",
+    "description": "Update or modify an existing appointment (reschedule or cancel). Use this when a customer wants to change their appointment details.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "appointmentId": {
+          "type": "string",
+          "description": "The unique appointment ID to update"
+        },
+        "newDate": {
+          "type": "string",
+          "description": "New date for the appointment in YYYY-MM-DD format"
+        },
+        "newTime": {
+          "type": "string",
+          "description": "New time for the appointment in HH:MM format"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "tentative", "cancelled"],
+          "description": "New status for the appointment"
+        }
+      },
+      "required": ["appointmentId"]
+    }
+  },
+  {
+    "name": "searchDatabase",
+    "description": "Search the database for general information about products, services, or policies. Use this for general inquiries that require looking up information.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "table": {
+          "type": "string",
+          "description": "The database table to search (e.g., 'products', 'services', 'policies')"
+        },
+        "query": {
+          "type": "string",
+          "description": "The search query or keywords"
+        },
+        "filters": {
+          "type": "object",
+          "description": "Optional filters to narrow down the search"
+        }
+      },
+      "required": ["table", "query"]
+    }
+  }
+]
