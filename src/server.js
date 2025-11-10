@@ -39,6 +39,20 @@ const twilioAuthMiddleware = (req, res, next) => {
 };
 
 // Routes
+app.get('/', (req, res) => {
+  res.json({
+    message: 'AI Voice Agent API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      webhook: '/voice/incoming',
+      websocket: '/voice/stream',
+      status: '/api/status'
+    }
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -71,8 +85,8 @@ const HOST = '0.0.0.0'; // Listen on all interfaces for Railway
 
 const server = app.listen(PORT, HOST, () => {
   logger.info(`🚀 AI Voice Agent server running on ${HOST}:${PORT}`);
-  logger.info(`📞 Webhook URL: ${req => req.protocol}://${req => req.get('host')}/voice/incoming`);
-  logger.info(`🔌 WebSocket URL: ws://${req => req.get('host')}/voice/stream`);
+  logger.info(`📞 Webhook URL: https://voiceagent-production-0d23.up.railway.app/voice/incoming`);
+  logger.info(`🔌 WebSocket URL: wss://voiceagent-production-0d23.up.railway.app/voice/stream`);
   logger.info(`🤖 AI Service: ${process.env.AI_SERVICE || 'gemini'}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
 }).on('error', (err) => {
