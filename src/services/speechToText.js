@@ -1,11 +1,33 @@
 const speech = require('@google-cloud/speech');
 const logger = require('../utils/logger');
 
-// Initialize Google Cloud Speech-to-Text client
-const speechClient = new speech.SpeechClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  projectId: process.env.GOOGLE_PROJECT_ID
-});
+let speechClient;
+
+try {
+  // Check if credentials are in environment variable (Railway/Heroku)
+  if (process.env.GOOGLE_CREDENTIALS) {
+    logger.info('Initializing Google Speech-to-Text from environment variable');
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    speechClient = new speech.SpeechClient({
+      credentials: credentials,
+      projectId: credentials.project_id
+    });
+  } 
+  // Check for credential file path (local development)
+  else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    logger.info('Initializing Google Speech-to-Text from file');
+    speechClient = new speech.SpeechClient({
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      projectId: process.env.GOOGLE_PROJECT_ID
+    });
+  } 
+  else {
+    throw new Error('Google Cloud credentials not configured. Set GOOGLE_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS');
+  }
+} catch (error) {
+  logger.error('Failed to initialize Speech-to-Text client:', error);
+  throw error;
+}
 
 /**
  * CR-01: Speech-to-Text
@@ -14,43 +36,38 @@ const speechClient = new speech.SpeechClient({
  * @param {string} audioData - Base64 encoded audio (mulaw format from Twilio)
  * @returns {Promise<string>} - Transcribed text
  */
-async function transcribeAudio(audioData) {
+async function transcribeAudio(audioBuffer) {
   try {
-    // Convert base64 to buffer
-    const audioBuffer = Buffer.from(audioData, 'base64');
-    
-    // Configure recognition request
-    const request = {
-      audio: {
-        content: audioBuffer.toString('base64')
-      },
-      config: {
-        encoding: 'MULAW', // Twilio uses mulaw encoding
-        sampleRateHertz: 8000, // Twilio phone audio is 8kHz
-        languageCode: process.env.STT_LANGUAGE_CODE || 'en-US',
-        enableAutomaticPunctuation: true,
-        model: 'phone_call', // Optimized for phone audio
-        useEnhanced: true // Use enhanced model for better accuracy
-      }
+    const audio = {
+      content: audioBuffer.toString('base64'),
     };
-    
-    // Perform synchronous speech recognition
+
+    const config = {
+      encoding: 'MULAW',
+      sampleRateHertz: 8000,
+      languageCode: 'en-US',
+      enableAutomaticPunctuation: true,
+      model: 'phone_call',
+    };
+
+    const request = {
+      audio: audio,
+      config: config,
+    };
+
+    logger.debug('Sending audio to Google Speech-to-Text API');
     const [response] = await speechClient.recognize(request);
     
-    if (!response.results || response.results.length === 0) {
-      return '';
-    }
-    
-    // Get the first (and typically only) result
     const transcription = response.results
       .map(result => result.alternatives[0].transcript)
-      .join(' ');
-    
-    return transcription.trim();
-    
+      .join('\n');
+
+    logger.info('Transcription successful:', transcription);
+    return transcription;
+
   } catch (error) {
     logger.error('Speech-to-Text error:', error);
-    throw new Error('Failed to transcribe audio');
+    throw new Error(`Transcription failed: ${error.message}`);
   }
 }
 
@@ -120,5 +137,6 @@ class StreamingSTT {
 
 module.exports = {
   transcribeAudio,
-  StreamingSTT
+  StreamingSTT,
+  speechClient
 };

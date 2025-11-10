@@ -1,11 +1,33 @@
 const textToSpeech = require('@google-cloud/text-to-speech');
 const logger = require('../utils/logger');
 
-// Initialize Google Cloud Text-to-Speech client
-const ttsClient = new textToSpeech.TextToSpeechClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  projectId: process.env.GOOGLE_PROJECT_ID
-});
+let ttsClient;
+
+try {
+  // Check if credentials are in environment variable (Railway/Heroku)
+  if (process.env.GOOGLE_CREDENTIALS) {
+    logger.info('Initializing Google Text-to-Speech from environment variable');
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    ttsClient = new textToSpeech.TextToSpeechClient({
+      credentials: credentials,
+      projectId: credentials.project_id
+    });
+  }
+  // Check for credential file path (local development)
+  else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    logger.info('Initializing Google Text-to-Speech from file');
+    ttsClient = new textToSpeech.TextToSpeechClient({
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      projectId: process.env.GOOGLE_PROJECT_ID
+    });
+  }
+  else {
+    throw new Error('Google Cloud credentials not configured. Set GOOGLE_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS');
+  }
+} catch (error) {
+  logger.error('Failed to initialize Text-to-Speech client:', error);
+  throw error;
+}
 
 // Cache for frequently used phrases to reduce latency
 const audioCache = new Map();
@@ -145,10 +167,44 @@ function getCacheStats() {
   };
 }
 
+/**
+ * Synthesize speech with custom options
+ */
+async function synthesizeSpeech(text, options = {}) {
+  try {
+    const request = {
+      input: { text: text },
+      voice: {
+        languageCode: options.languageCode || 'en-US',
+        name: options.voiceName || 'en-US-Neural2-J', // Natural male voice
+        ssmlGender: options.ssmlGender || 'MALE',
+      },
+      audioConfig: {
+        audioEncoding: 'MULAW',
+        sampleRateHertz: 8000,
+        speakingRate: options.speakingRate || 1.1, // Slightly faster for phone
+        pitch: options.pitch || 0,
+      },
+    };
+
+    logger.debug('Synthesizing speech:', text.substring(0, 50) + '...');
+    const [response] = await ttsClient.synthesizeSpeech(request);
+    
+    logger.info('Speech synthesis successful');
+    return response.audioContent;
+
+  } catch (error) {
+    logger.error('Text-to-Speech error:', error);
+    throw new Error(`Speech synthesis failed: ${error.message}`);
+  }
+}
+
 module.exports = {
   generateSpeech,
   generateSpeechCustom,
   generateSpeechSSML,
   clearCache,
-  getCacheStats
+  getCacheStats,
+  synthesizeSpeech,
+  ttsClient
 };
