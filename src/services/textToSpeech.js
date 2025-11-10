@@ -1,32 +1,22 @@
 const textToSpeech = require('@google-cloud/text-to-speech');
 const logger = require('../utils/logger');
+const { getGoogleCredentials } = require('../config/googleCloud');
 
 let ttsClient;
 
 try {
-  // Check if credentials are in environment variable (Railway/Heroku)
-  if (process.env.GOOGLE_CREDENTIALS) {
-    logger.info('Initializing Google Text-to-Speech from environment variable');
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-    ttsClient = new textToSpeech.TextToSpeechClient({
-      credentials: credentials,
-      projectId: credentials.project_id
-    });
-  }
-  // Check for credential file path (local development)
-  else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    logger.info('Initializing Google Text-to-Speech from file');
-    ttsClient = new textToSpeech.TextToSpeechClient({
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      projectId: process.env.GOOGLE_PROJECT_ID
-    });
-  }
-  else {
-    throw new Error('Google Cloud credentials not configured. Set GOOGLE_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS');
+  const credentials = getGoogleCredentials();
+  
+  if (!credentials) {
+    logger.warn('Google Text-to-Speech not initialized - using mock mode');
+    ttsClient = null;
+  } else {
+    logger.info('Initializing Google Text-to-Speech client');
+    ttsClient = new textToSpeech.TextToSpeechClient(credentials);
   }
 } catch (error) {
   logger.error('Failed to initialize Text-to-Speech client:', error);
-  throw error;
+  ttsClient = null;
 }
 
 // Cache for frequently used phrases to reduce latency
@@ -41,6 +31,12 @@ const MAX_CACHE_SIZE = 100;
  * @returns {Promise<string>} - Base64 encoded audio (mulaw format for Twilio)
  */
 async function generateSpeech(text) {
+  // Mock response if client not initialized
+  if (!ttsClient) {
+    logger.warn('Text-to-Speech client not available - returning empty audio');
+    return Buffer.from('').toString('base64');
+  }
+  
   try {
     // Check cache first
     if (audioCache.has(text)) {

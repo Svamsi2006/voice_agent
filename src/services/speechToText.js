@@ -1,32 +1,22 @@
 const speech = require('@google-cloud/speech');
 const logger = require('../utils/logger');
+const { getGoogleCredentials } = require('../config/googleCloud');
 
 let speechClient;
 
 try {
-  // Check if credentials are in environment variable (Railway/Heroku)
-  if (process.env.GOOGLE_CREDENTIALS) {
-    logger.info('Initializing Google Speech-to-Text from environment variable');
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-    speechClient = new speech.SpeechClient({
-      credentials: credentials,
-      projectId: credentials.project_id
-    });
-  } 
-  // Check for credential file path (local development)
-  else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    logger.info('Initializing Google Speech-to-Text from file');
-    speechClient = new speech.SpeechClient({
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      projectId: process.env.GOOGLE_PROJECT_ID
-    });
-  } 
-  else {
-    throw new Error('Google Cloud credentials not configured. Set GOOGLE_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS');
+  const credentials = getGoogleCredentials();
+  
+  if (!credentials) {
+    logger.warn('Google Speech-to-Text not initialized - using mock mode');
+    speechClient = null;
+  } else {
+    logger.info('Initializing Google Speech-to-Text client');
+    speechClient = new speech.SpeechClient(credentials);
   }
 } catch (error) {
   logger.error('Failed to initialize Speech-to-Text client:', error);
-  throw error;
+  speechClient = null;
 }
 
 /**
@@ -37,6 +27,12 @@ try {
  * @returns {Promise<string>} - Transcribed text
  */
 async function transcribeAudio(audioBuffer) {
+  // Mock response if client not initialized
+  if (!speechClient) {
+    logger.warn('Speech-to-Text client not available - returning mock transcription');
+    return 'Mock transcription - Google credentials not configured';
+  }
+  
   try {
     const audio = {
       content: audioBuffer.toString('base64'),

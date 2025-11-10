@@ -67,17 +67,45 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  logger.info(`🚀 AI Voice Agent server running on port ${PORT}`);
-  logger.info(`📞 Webhook URL: http://localhost:${PORT}/voice/incoming`);
-  logger.info(`🔌 WebSocket URL: ws://localhost:${PORT}/voice/stream`);
-  logger.info(`🤖 AI Service: ${process.env.AI_SERVICE || 'openai'}`);
+const HOST = '0.0.0.0'; // Listen on all interfaces for Railway
+
+const server = app.listen(PORT, HOST, () => {
+  logger.info(`🚀 AI Voice Agent server running on ${HOST}:${PORT}`);
+  logger.info(`📞 Webhook URL: ${req => req.protocol}://${req => req.get('host')}/voice/incoming`);
+  logger.info(`🔌 WebSocket URL: ws://${req => req.get('host')}/voice/stream`);
+  logger.info(`🤖 AI Service: ${process.env.AI_SERVICE || 'gemini'}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
+}).on('error', (err) => {
+  logger.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
-  process.exit(0);
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 module.exports = app;
