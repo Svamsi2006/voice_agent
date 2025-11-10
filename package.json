@@ -4,7 +4,7 @@
   "description": "AI Conversational Phone Agent with Twilio, OpenAI/Gemini, and real-time voice streaming",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node diagnose.js",
     "dev": "nodemon src/server.js",
     "test": "node src/test-call.js",
     "setup": "node setup-wizard.js"
