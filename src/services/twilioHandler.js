@@ -15,33 +15,58 @@ const activeSessions = new Map();
  * Handles initial Twilio webhook when a call comes in
  */
 function handleIncomingCall(req, res) {
-  const callSid = req.body.CallSid;
-  const from = req.body.From;
-  
-  logger.info(`📞 Incoming call from ${from} (${callSid})`);
-  
-  // FR-02: Initial Response (TwiML)
-  const twiml = new twilio.twiml.VoiceResponse();
-  
-  // Initial greeting
-  twiml.say({
-    voice: 'Polly.Joanna'
-  }, 'Hello! I am your AI assistant. How can I help you today?');
-  
-  // FR-03: Real-Time Voice Stream
-  // Connect to WebSocket for bidirectional audio streaming
-  const connect = twiml.connect();
-  connect.stream({
-    url: `wss://${req.headers.host}/voice/stream`,
-    parameters: {
-      callSid: callSid,
-      from: from
-    }
-  });
-  
-  // Set response content type
-  res.type('text/xml');
-  res.send(twiml.toString());
+  try {
+    const callSid = req.body.CallSid;
+    const from = req.body.From;
+    const to = req.body.To;
+    
+    logger.info(`📞 Incoming call from ${from} to ${to} (CallSid: ${callSid})`);
+    logger.info(`Request body:`, req.body);
+    logger.info(`Request headers:`, req.headers);
+    
+    // FR-02: Initial Response (TwiML)
+    const twiml = new twilio.twiml.VoiceResponse();
+    
+    // Initial greeting
+    twiml.say({
+      voice: 'Polly.Joanna'
+    }, 'Hello! I am your AI assistant. How can I help you today?');
+    
+    // FR-03: Real-Time Voice Stream
+    // Connect to WebSocket for bidirectional audio streaming
+    const connect = twiml.connect();
+    
+    // Get the host from headers (Railway uses x-forwarded-host)
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'voiceagent-production-0d23.up.railway.app';
+    const wsUrl = `wss://${host}/voice/stream`;
+    
+    logger.info(`🔌 WebSocket URL: ${wsUrl}`);
+    
+    connect.stream({
+      url: wsUrl,
+      parameters: {
+        callSid: callSid,
+        from: from
+      }
+    });
+    
+    // Set response content type
+    res.type('text/xml');
+    const twimlResponse = twiml.toString();
+    logger.info(`📤 Sending TwiML response:`, twimlResponse);
+    res.send(twimlResponse);
+    
+  } catch (error) {
+    logger.error('❌ Error handling incoming call:', error);
+    
+    // Send error TwiML
+    const errorTwiml = new twilio.twiml.VoiceResponse();
+    errorTwiml.say('We apologize, but there was an error. Please try again later.');
+    errorTwiml.hangup();
+    
+    res.type('text/xml');
+    res.status(500).send(errorTwiml.toString());
+  }
 }
 
 /**
